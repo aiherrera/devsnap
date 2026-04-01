@@ -1,0 +1,53 @@
+{
+  "name": "@aiherrera/devsnap",
+  "version": "0.1.0",
+  "author": "aiherrera",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aiherrera/devsnap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aiherrera/devsnap/issues"
+  },
+  "homepage": "https://devsnap.app",
+  "description": "macOS CLI: scan your dev environment, annotate, diff locally; optional cloud sync to your own API.",
+  "keywords": [
+    "devtools",
+    "environment",
+    "snapshot",
+    "cli",
+    "macos"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "devsnap": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/snapshot-ids.test.mjs"
+  },
+  "dependencies": {
+    "chalk": "5.6.2",
+    "cli-table3": "0.6.5",
+    "commander": "14.0.3",
+    "execa": "9.6.1",
+    "open": "11.0.0",
+    "ora": "9.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "4.21.0",
+    "typescript": "6.0.2"
+  }
+}

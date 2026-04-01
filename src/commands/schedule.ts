@@ -1,0 +1,105 @@
+import chalk from 'chalk'
+import { writeFile, readFile, mkdir, chmod } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
+import { execa } from 'execa'
+import { withCmdTimeout } from '../util/execa-options.js'
+
+const LABEL = 'com.devsnap.auto-scan'
+const PLIST_PATH = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`)
+
+function escapePlistString(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function buildPlist(interval: number, programArguments: string[], stdOut: string, stdErr: string): string {
+  const argsXml = programArguments.map((a) => `    <string>${escapePlistString(a)}</string>`).join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+${argsXml}
+  </array>
+  <key>StartInterval</key>
+  <integer>${interval}</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>${escapePlistString(stdOut)}</string>
+  <key>StandardErrorPath</key>
+  <string>${escapePlistString(stdErr)}</string>
+</dict>
+</plist>`
+}
+
+async function resolveProgramArguments(): Promise<string[]> {
+  try {
+    const r = await execa('which', ['devsnap'], withCmdTimeout())
+    return [r.stdout.trim(), 'scan']
+  } catch {
+    const r = await execa('which', ['npx'], withCmdTimeout())
+    return [r.stdout.trim(), 'devsnap', 'scan']
+  }
+}
+
+export async function runSchedule(action: 'install' | 'uninstall' | 'status', interval?: number): Promise<void> {
+  const logOut = join(homedir(), '.devsnap', 'schedule.log')
+  const logErr = join(homedir(), '.devsnap', 'schedule.err')
+
+  if (action === 'status') {
+    if (!existsSync(PLIST_PATH)) {
+      console.log(chalk.dim('No schedule installed. Run `devsnap schedule install` to set one up.'))
+      return
+    }
+    const raw = await readFile(PLIST_PATH, 'utf8')
+    const match = raw.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/)
+    const secs = match ? parseInt(match[1], 10) : 0
+    const hours = (secs / 3600).toFixed(1)
+    console.log(`\n  Schedule: ${chalk.green('active')}`)
+    console.log(`  Interval: every ${chalk.bold(hours)} hours (${secs}s)`)
+    console.log(`  Plist: ${chalk.dim(PLIST_PATH)}\n`)
+    return
+  }
+
+  if (action === 'uninstall') {
+    if (!existsSync(PLIST_PATH)) {
+      console.log(chalk.dim('No schedule found.'))
+      return
+    }
+    await execa('launchctl', ['unload', PLIST_PATH], withCmdTimeout()).catch(() => null)
+    const { unlink } = await import('node:fs/promises')
+    await unlink(PLIST_PATH)
+    console.log(chalk.green('Schedule removed.'))
+    return
+  }
+
+  // install
+  const intervalSecs = (interval ?? 24) * 3600
+  const programArguments = await resolveProgramArguments()
+
+  await mkdir(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true })
+  await mkdir(join(homedir(), '.devsnap'), { recursive: true, mode: 0o700 })
+  await chmod(join(homedir(), '.devsnap'), 0o700).catch(() => {})
+
+  const plist = buildPlist(intervalSecs, programArguments, logOut, logErr)
+  await writeFile(PLIST_PATH, plist, 'utf8')
+
+  // Unload if already loaded, then load
+  await execa('launchctl', ['unload', PLIST_PATH], withCmdTimeout()).catch(() => null)
+  await execa('launchctl', ['load', PLIST_PATH], withCmdTimeout())
+
+  console.log(chalk.green('Schedule installed.'))
+  console.log(`  Runs every ${chalk.bold(String(interval ?? 24))} hours via launchd`)
+  console.log(`  Plist: ${chalk.dim(PLIST_PATH)}`)
+  console.log(chalk.dim('\n  To remove: devsnap schedule uninstall\n'))
+}
