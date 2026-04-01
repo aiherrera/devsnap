@@ -1,11 +1,9 @@
-# Publishes @aiherrera/devsnap to npm (CI workflow only tests; it does not publish).
-# Requires repo secret NPM_TOKEN (npm "Automation" or "Publish" token).
+# Manual npm publish only (e.g. hotfix). Normal releases use `release-please.yml`.
+# Requires: NPM_TOKEN secret.
 
-name: Publish to npm
+name: Publish to npm (manual)
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 concurrency:

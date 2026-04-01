@@ -196,16 +196,35 @@ npm run typecheck
 
 **CI** (`.github/workflows/ci.yml`) runs typecheck, tests, and a pack dry-run on pushes and PRs. It does **not** publish to npm.
 
-### Publishing to npm from GitHub Actions
+### Automated versioning and releases ([Release Please](https://github.com/googleapis/release-please))
+
+This repo uses **[Release Please](https://github.com/googleapis/release-please)** (`.github/workflows/release-please.yml`):
+
+1. Use **[Conventional Commits](https://www.conventionalcommits.org/)** on `main`, for example:
+   - `fix: …` → patch bump  
+   - `feat: …` → minor bump  
+   - `feat!: …` or `BREAKING CHANGE:` in the body → major bump  
+   - `chore:`, `docs:`, etc. usually do not trigger a release by themselves (see Release Please rules).
+2. On each push to **`main`**, the workflow opens or updates a **Release PR** that bumps **`package.json`**, updates **`CHANGELOG.md`**, and prepares the next version.
+3. When you **merge that Release PR**, Release Please creates the **GitHub release and tag**, then **`npm publish --access public`** runs in the **same** job (so you do not depend on a second workflow).
+
+**Setup**
+
+- Add the **`NPM_TOKEN`** Actions secret (npm automation/publish token), same as below.
+- Under **Settings → Actions → General**, allow **“Read and write permissions”** for the workflow token and (if prompted) allow workflows to **create pull requests**.
+
+**Other tools people use:** [semantic-release](https://semantic-release.gitbook.io/) (fully automated from commits, no merge step), [Changesets](https://github.com/changesets/changesets) (human-written changeset files). Release Please fits GitHub-centric teams who like a visible **Release PR**.
+
+### Manual npm publish (optional)
+
+**Actions → Publish to npm (manual) → Run workflow** publishes whatever **`version`** is on **`main`** today. Use for hotfixes or if you skip Release Please. Still requires **`NPM_TOKEN`**.
+
+### npm token
 
 1. Create an **automation** (or **publish**) token at [npmjs.com](https://www.npmjs.com/) → **Access Tokens**.
-2. In this GitHub repo: **Settings → Secrets and variables → Actions → New repository secret** → name **`NPM_TOKEN`**, paste the token.
-3. Ensure **`package.json`** `version` is the one you want to ship (bump with `npm version patch` etc., commit, push).
-4. Trigger a publish either way:
-   - **Recommended:** create a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) (publish release). The workflow runs on `release: published`.
-   - **Manual:** **Actions → Publish to npm → Run workflow** (`workflow_dispatch`).
+2. Repo **Settings → Secrets and variables → Actions** → **`NPM_TOKEN`**.
 
-The workflow runs `npm publish --access public` (required for scoped `@aiherrera/*` packages). Your npm user must be allowed to publish under that scope.
+Scoped packages need **`npm publish --access public`**; the workflows already pass that. Your npm user must be allowed to publish **`@aiherrera/*`**.
 
 ---
 
