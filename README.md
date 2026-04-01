@@ -194,6 +194,19 @@ npm run build            # tsc → dist/
 npm run typecheck
 ```
 
+**CI** (`.github/workflows/ci.yml`) runs typecheck, tests, and a pack dry-run on pushes and PRs. It does **not** publish to npm.
+
+### Publishing to npm from GitHub Actions
+
+1. Create an **automation** (or **publish**) token at [npmjs.com](https://www.npmjs.com/) → **Access Tokens**.
+2. In this GitHub repo: **Settings → Secrets and variables → Actions → New repository secret** → name **`NPM_TOKEN`**, paste the token.
+3. Ensure **`package.json`** `version` is the one you want to ship (bump with `npm version patch` etc., commit, push).
+4. Trigger a publish either way:
+   - **Recommended:** create a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) (publish release). The workflow runs on `release: published`.
+   - **Manual:** **Actions → Publish to npm → Run workflow** (`workflow_dispatch`).
+
+The workflow runs `npm publish --access public` (required for scoped `@aiherrera/*` packages). Your npm user must be allowed to publish under that scope.
+
 ---
 
 ## License
