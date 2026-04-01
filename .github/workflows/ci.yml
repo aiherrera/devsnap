@@ -1,3 +1,4 @@
+# Lint/build/test only. Publishing is handled by publish.yml (npm token required).
 name: CI
 
 on:
