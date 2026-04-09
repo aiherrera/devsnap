@@ -29,7 +29,7 @@
 | Context for teammates or support | `devsnap share clipboard` or gist (Markdown/HTML) |
 | To remember *why* a tool is installed | `devsnap annotate` on tool keys |
 | A starting point to reproduce a machine | `devsnap export brewfile` or `bootstrap` |
-| Low-friction drift awareness | `devsnap schedule install` (daily `launchd` scans) |
+| Low-friction drift awareness | `devsnap schedule install` — recurring **`launchd`** scans (interval presets below; default **24h**) |
 | A lightweight security pass | `devsnap audit` (optional `--html`) |
 | Optional upload to your own API | `devsnap cloud push` (after `cloud auth` or `cloud register`) |
 
@@ -74,6 +74,10 @@ devsnap diff
 
 # Search the latest snapshot
 devsnap search docker
+
+# Optional (macOS): recurring scans via launchd — presets: 1h, 8h, 24h (default), 7d, 1m
+devsnap schedule install --interval 8h
+devsnap schedule status
 ```
 
 ---
@@ -90,7 +94,7 @@ devsnap search docker
 | `devsnap search <query>` | Search latest snapshot; `-s, --snapshot <id>` for a specific one |
 | `devsnap export <format> [output]` | `brewfile` or `bootstrap` from latest snapshot |
 | `devsnap clean` | Drop old snapshots; `-k, --keep <n>` (default **5**) |
-| `devsnap schedule <action>` | `install` \| `uninstall` \| `status` — automatic scans via **launchd** |
+| `devsnap schedule <action>` | `install` \| `uninstall` \| `status` — automatic scans via **launchd**. **`-i, --interval`** presets: **`1h`**, **`8h`**, **`24h`** (default), **`7d`**, **`1m`** (`1m` = 30 days; fixed timer, not calendar months) |
 | `devsnap share <target>` | `clipboard` \| `gist` — `--format md\|html` (gist needs `gh` CLI; see **Privacy** below) |
 | `devsnap audit` | Security-oriented audit; `--html` for report |
 | `devsnap config show` | Print config |
