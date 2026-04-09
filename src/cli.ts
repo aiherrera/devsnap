@@ -11,7 +11,7 @@ import { runOpen } from './commands/open.js'
 import { runExport } from './commands/export.js'
 import { runClean } from './commands/clean.js'
 import { runSearch } from './commands/search.js'
-import { runSchedule, parseScheduleInterval } from './commands/schedule.js'
+import { runSchedule, parseScheduleInterval, parseScheduleTime } from './commands/schedule.js'
 import { runShare } from './commands/share.js'
 import { runConfigCommand } from './store/config.js'
 import { runAudit } from './commands/audit.js'
@@ -126,20 +126,30 @@ program
   .description('Manage automatic scans via launchd (actions: install, uninstall, status)')
   .option(
     '-i, --interval <preset>',
-    'Scan interval: 1h, 8h, 24h (default), 7d, 1m',
+    'Scan interval: 1h, 8h, 24h (default), 1w, 1m',
     '24h',
   )
-  .action(async (action: string, opts: { interval: string }) => {
+  .option(
+    '-t, --time <HH:MM>',
+    'Local time for 24h / 1w / 1m (ignored for 1h / 8h)',
+    '08:00',
+  )
+  .action(async (action: string, opts: { interval: string; time: string }) => {
     if (!['install', 'uninstall', 'status'].includes(action)) {
       console.error('Usage: devsnap schedule <install|uninstall|status>')
       process.exit(1)
     }
     const preset = parseScheduleInterval(opts.interval)
     if (!preset) {
-      console.error('Invalid --interval: use one of: 1h, 8h, 24h, 7d, 1m (default: 24h).')
+      console.error('Invalid --interval: use one of: 1h, 8h, 24h, 1w, 1m (default: 24h).')
       process.exit(1)
     }
-    await runSchedule(action as 'install' | 'uninstall' | 'status', preset)
+    const at = parseScheduleTime(opts.time)
+    if (!at) {
+      console.error('Invalid --time: use HH:MM in 24-hour form (e.g. 08:00 or 14:30).')
+      process.exit(1)
+    }
+    await runSchedule(action as 'install' | 'uninstall' | 'status', preset, at)
   })
 
 // devsnap share <clipboard|gist>
