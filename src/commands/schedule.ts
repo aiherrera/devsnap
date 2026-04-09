@@ -9,6 +9,41 @@ import { withCmdTimeout } from '../util/execa-options.js'
 const LABEL = 'com.devsnap.auto-scan'
 const PLIST_PATH = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`)
 
+/** Preset scan intervals for launchd `StartInterval` (seconds). `1m` is 30 days (fixed calendar-style month). */
+export const SCHEDULE_INTERVAL_SECONDS = {
+  '1h': 3600,
+  '8h': 8 * 3600,
+  '24h': 24 * 3600,
+  '7d': 7 * 24 * 3600,
+  '1m': 30 * 24 * 3600,
+} as const
+
+export type ScheduleIntervalPreset = keyof typeof SCHEDULE_INTERVAL_SECONDS
+
+const PRESET_ORDER: ScheduleIntervalPreset[] = ['1h', '8h', '24h', '7d', '1m']
+
+export function parseScheduleInterval(raw: string): ScheduleIntervalPreset | null {
+  const key = raw.trim().toLowerCase() as ScheduleIntervalPreset
+  return PRESET_ORDER.includes(key) ? key : null
+}
+
+function describeIntervalSeconds(secs: number): string {
+  const preset = PRESET_ORDER.find((p) => SCHEDULE_INTERVAL_SECONDS[p] === secs)
+  if (preset) {
+    const labels: Record<ScheduleIntervalPreset, string> = {
+      '1h': '1 hour',
+      '8h': '8 hours',
+      '24h': '24 hours',
+      '7d': '7 days',
+      '1m': '30 days (~1 month)',
+    }
+    return `${preset} (${labels[preset]})`
+  }
+  if (secs % 86400 === 0) return `${secs / 86400} day(s)`
+  if (secs % 3600 === 0) return `${secs / 3600} hour(s)`
+  return `${secs} second(s)`
+}
+
 function escapePlistString(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -52,7 +87,10 @@ async function resolveProgramArguments(): Promise<string[]> {
   }
 }
 
-export async function runSchedule(action: 'install' | 'uninstall' | 'status', interval?: number): Promise<void> {
+export async function runSchedule(
+  action: 'install' | 'uninstall' | 'status',
+  intervalPreset?: ScheduleIntervalPreset,
+): Promise<void> {
   const logOut = join(homedir(), '.devsnap', 'schedule.log')
   const logErr = join(homedir(), '.devsnap', 'schedule.err')
 
@@ -64,9 +102,8 @@ export async function runSchedule(action: 'install' | 'uninstall' | 'status', in
     const raw = await readFile(PLIST_PATH, 'utf8')
     const match = raw.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/)
     const secs = match ? parseInt(match[1], 10) : 0
-    const hours = (secs / 3600).toFixed(1)
     console.log(`\n  Schedule: ${chalk.green('active')}`)
-    console.log(`  Interval: every ${chalk.bold(hours)} hours (${secs}s)`)
+    console.log(`  Interval: every ${chalk.bold(describeIntervalSeconds(secs))} (${secs}s)`)
     console.log(`  Plist: ${chalk.dim(PLIST_PATH)}\n`)
     return
   }
@@ -84,7 +121,8 @@ export async function runSchedule(action: 'install' | 'uninstall' | 'status', in
   }
 
   // install
-  const intervalSecs = (interval ?? 24) * 3600
+  const preset = intervalPreset ?? '24h'
+  const intervalSecs = SCHEDULE_INTERVAL_SECONDS[preset]
   const programArguments = await resolveProgramArguments()
 
   await mkdir(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true })
@@ -99,7 +137,7 @@ export async function runSchedule(action: 'install' | 'uninstall' | 'status', in
   await execa('launchctl', ['load', PLIST_PATH], withCmdTimeout())
 
   console.log(chalk.green('Schedule installed.'))
-  console.log(`  Runs every ${chalk.bold(String(interval ?? 24))} hours via launchd`)
+  console.log(`  Runs every ${chalk.bold(describeIntervalSeconds(intervalSecs))} via launchd`)
   console.log(`  Plist: ${chalk.dim(PLIST_PATH)}`)
   console.log(chalk.dim('\n  To remove: devsnap schedule uninstall\n'))
 }
